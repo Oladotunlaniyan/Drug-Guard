@@ -1,10 +1,11 @@
 import React, { useRef, useEffect } from 'react';
-import { Search, X, Loader2 } from 'lucide-react';
+import { Search, X, Loader2, Camera } from 'lucide-react';
 
 interface SearchBarProps {
   query: string;
   onQueryChange: (q: string) => void;
   onSearch: (customQuery?: string) => void;
+  onOpenScanner?: () => void;
   isLoading: boolean;
   autoFocus?: boolean;
 }
@@ -13,6 +14,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   query,
   onQueryChange,
   onSearch,
+  onOpenScanner,
   isLoading,
   autoFocus = false,
 }) => {
@@ -37,7 +39,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full">
+    <form onSubmit={handleSubmit} className="w-full space-y-2.5">
       <div className="relative flex flex-col sm:flex-row items-stretch gap-2.5 sm:gap-2">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -68,20 +70,37 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading || !query.trim()}
-          className="min-h-[48px] px-6 py-3 bg-emerald-800 text-white font-medium text-sm rounded-lg hover:bg-emerald-900 active:bg-emerald-950 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors shrink-0 shadow-xs flex items-center justify-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Checking...</span>
-            </>
-          ) : (
-            <span>Check medicine</span>
+        <div className="flex items-center gap-2">
+          {/* Primary Action: Check medicine */}
+          <button
+            type="submit"
+            disabled={isLoading || !query.trim()}
+            className="flex-1 sm:flex-none min-h-[48px] px-6 py-3 bg-emerald-800 text-white font-medium text-sm rounded-lg hover:bg-emerald-900 active:bg-emerald-950 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors shrink-0 shadow-xs flex items-center justify-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Checking...</span>
+              </>
+            ) : (
+              <span>Check medicine</span>
+            )}
+          </button>
+
+          {/* Secondary Action: Scan medicine */}
+          {onOpenScanner && (
+            <button
+              type="button"
+              onClick={onOpenScanner}
+              disabled={isLoading}
+              title="Scan medicine packaging or blister pack with camera or photo"
+              className="min-h-[48px] px-3.5 sm:px-4 py-3 bg-white border border-slate-300 hover:bg-slate-50 active:bg-slate-100 text-slate-700 font-medium text-sm rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+            >
+              <Camera className="w-4 h-4 text-emerald-800" />
+              <span>Scan medicine</span>
+            </button>
           )}
-        </button>
+        </div>
       </div>
     </form>
   );

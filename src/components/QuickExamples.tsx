@@ -16,8 +16,8 @@ export const QuickExamples: React.FC<QuickExamplesProps> = ({
   ];
 
   const secondaryExamples = [
-    { label: 'NAFDAC No: DEMO-04-7493', query: 'DEMO-04-7493' },
-    { label: 'Unmatched query: Artemisin-X', query: 'Artemisin-X' },
+    { label: 'NAFDAC: B4-8892', query: 'B4-8892' },
+    { label: 'Unmatched: Artemisin-X', query: 'Artemisin-X' },
   ];
 
   return (

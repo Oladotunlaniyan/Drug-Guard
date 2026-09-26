@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
             Safety & Boundaries
           </button>
           <a
-            href="https://www.nafdac.gov.ng"
+            href="https://registration.nafdac.gov.ng/"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-slate-900 transition-colors py-1 inline-flex items-center gap-1"

@@ -47,50 +47,71 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
               className="w-full text-left p-4 sm:p-5 hover:bg-slate-50 active:bg-slate-100 transition-colors flex items-start justify-between gap-4 cursor-pointer focus:outline-none focus-visible:bg-slate-50"
             >
               <div className="flex-1 min-w-0 space-y-2">
-                {/* Product Name & Brand */}
+                {/* Product Name & Category */}
                 <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
                   <h3 className="text-base font-bold text-slate-900 tracking-tight">
                     {med.name}
                   </h3>
-                  <span className="text-xs text-slate-500">
-                    ({med.category})
-                  </span>
+                  {med.category && (
+                    <span className="text-xs text-slate-500">
+                      ({med.category})
+                    </span>
+                  )}
                 </div>
 
-                {/* Primary Specifications: Active Ingredients & Strength */}
-                <div className="text-sm text-slate-700">
-                  <span className="font-medium text-slate-900">Active Ingredient: </span>
-                  {med.activeIngredients}
-                </div>
+                {/* Primary Specifications: Active Ingredients */}
+                {med.activeIngredients && (
+                  <div className="text-sm text-slate-700">
+                    <span className="font-medium text-slate-900">Active Ingredient: </span>
+                    {med.activeIngredients}
+                  </div>
+                )}
 
                 {/* Metadata with typographic separator */}
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                  <span>
-                    <strong className="font-medium text-slate-700">Form: </strong>
-                    {med.dosageForm} ({med.strength})
-                  </span>
-                  <span aria-hidden="true" className="text-slate-300">·</span>
-                  <span>
-                    <strong className="font-medium text-slate-700">Route: </strong>
-                    {med.route}
-                  </span>
-                  <span aria-hidden="true" className="text-slate-300">·</span>
-                  <span className="truncate">
-                    <strong className="font-medium text-slate-700">Manufacturer: </strong>
-                    {med.manufacturer}
-                  </span>
-                </div>
+                {(med.dosageForm || med.strength || med.route || med.manufacturer) && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                    {(med.dosageForm || med.strength) && (
+                      <span>
+                        <strong className="font-medium text-slate-700">Form: </strong>
+                        {med.dosageForm || ''}
+                        {med.strength ? ` (${med.strength})` : ''}
+                      </span>
+                    )}
+                    {med.route && (
+                      <>
+                        <span aria-hidden="true" className="text-slate-300">·</span>
+                        <span>
+                          <strong className="font-medium text-slate-700">Route: </strong>
+                          {med.route}
+                        </span>
+                      </>
+                    )}
+                    {med.manufacturer && (
+                      <>
+                        <span aria-hidden="true" className="text-slate-300">·</span>
+                        <span className="truncate">
+                          <strong className="font-medium text-slate-700">Manufacturer: </strong>
+                          {med.manufacturer}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Registration reference identifier and registration status */}
                 <div className="pt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500">Registration Reference:</span>
-                    <span className="font-mono font-medium text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] tabular-nums">
-                      {med.nafdacFormattedNumber}
-                    </span>
-                  </div>
+                  {med.nafdacFormattedNumber && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-500">Registration Reference:</span>
+                      <span className="font-mono font-medium text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded text-[11px] tabular-nums">
+                        {med.nafdacFormattedNumber}
+                      </span>
+                    </div>
+                  )}
 
-                  <span aria-hidden="true" className="text-slate-300">·</span>
+                  {med.nafdacFormattedNumber && (
+                    <span aria-hidden="true" className="text-slate-300">·</span>
+                  )}
 
                   {/* Registration Status - requirement: "Registered product found" */}
                   <div className="flex items-center gap-1">

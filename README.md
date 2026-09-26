@@ -19,7 +19,13 @@ DrugGuard is an **educational information utility**, not a doctor, diagnostic to
 ## Core User Flow
 
 ```
-Search Medicine / NAFDAC Number 
+Search Medicine OR Scan Medicine Package (Camera / Upload via Tesseract.js OCR)
+       │
+       ▼
+Confirm / Edit Detected Medicine Name or NAFDAC Number
+       │
+       ▼
+Existing DrugGuard Search (medicineService)
        │
        ▼
 Matching Results List (Scannable Product Cards)
@@ -35,10 +41,18 @@ Safety Notices & Pharmacist Verification Guidance
 
 ## Key Features
 
-1. **Home Screen**:
+1. **Home Screen & Search**:
    - Prominent search input with instant clear action.
+   - Secondary **“Scan medicine”** action with camera and photo upload support using client-side **Tesseract.js** OCR.
+   - Detected text confirmation and editing screen prior to running the search.
    - Quick one-tap examples: **P-Alaxin**, **Paracetamol**, **Amoxicillin**, and a demo registration number.
    - Prominent educational disclaimers.
+
+2. **OCR Medicine Package Scanner**:
+   - Client-side text detection with support for device cameras (rear environment camera) and photo file uploads (cartons or blister packs).
+   - Dedicated parser (`ocrParser.ts`) extracting NAFDAC registration numbers and drug names.
+   - Complete state handling: *Scanning*, *Processing*, *Text detected*, *No useful text detected*, and *OCR error*.
+   - Strict privacy & safety: OCR is purely an input method; images are never stored or uploaded, and scanning does not certify physical authenticity.
 
 2. **Search Results**:
    - Scannable cards displaying Product Name, Active Ingredients, Strength, Dosage Form, Route, Manufacturer, Registration Reference, and Status.
@@ -91,13 +105,14 @@ src/
     └── Footer.tsx           # Regulatory notice, disclaimer, and official links
 ```
 
-### Backend API Readiness
+### Backend API Integration
 
-The UI interacts exclusively through `medicineService`. When transitioning to a production backend, configure `VITE_API_BASE` in the environment. The service maps to the following endpoints without requiring any changes to UI components:
+The UI interacts exclusively through `medicineService`. Configured via `VITE_API_BASE_URL` (defaulting to `https://druggard-backend.onrender.com`):
 
-- `GET /api/medicines?q={query}` — Search by brand name, generic active ingredient, or NAFDAC number.
-- `GET /api/medicines/nafdac/{number}` — Direct lookup by registration code.
-- `GET /api/medicines/{id}` — Lookup by unique record ID.
+- `GET /api/v1/health` — Backend health check.
+- `GET /api/v1/medicines?q={query}` — Search medicines by brand, active ingredient, or NAFDAC code.
+- `GET /api/v1/medicines/all` — Retrieve all available medicine records.
+- `GET /api/v1/medicines/nafdac/{nafdacNumber}` — Direct NAFDAC registration lookup.
 
 ---
 
@@ -105,7 +120,7 @@ The UI interacts exclusively through `medicineService`. When transitioning to a 
 
 ### Prerequisites
 - Node.js 18+
-- pnpm or yarn
+- npm or yarn
 
 ### Installation
 

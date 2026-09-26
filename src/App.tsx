@@ -7,6 +7,7 @@ import { MedicineDetail } from './components/MedicineDetail';
 import { NoResults } from './components/NoResults';
 import { ErrorState } from './components/ErrorState';
 import { SafetyModal } from './components/SafetyModal';
+import { MedicineScanner } from './components/MedicineScanner';
 import { Footer } from './components/Footer';
 import { medicineService } from './services/medicineService';
 import { Medicine } from './types/medicine';
@@ -21,6 +22,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Perform search via the medicineService abstraction layer
   const executeSearch = useCallback(
@@ -61,6 +63,12 @@ export default function App() {
   const handleSelectExample = (exampleText: string) => {
     setQuery(exampleText);
     executeSearch(exampleText);
+  };
+
+  // Called after user confirms/edits OCR detected medicine text
+  const handleOcrConfirmedSearch = (confirmedText: string) => {
+    setQuery(confirmedText);
+    executeSearch(confirmedText);
   };
 
   const handleClear = () => {
@@ -105,6 +113,7 @@ export default function App() {
             query={query}
             onQueryChange={setQuery}
             onSearch={handleSearchSubmit}
+            onOpenScanner={() => setIsScannerOpen(true)}
             isLoading={isLoading}
             autoFocus={!hasSearched}
           />
@@ -184,7 +193,7 @@ export default function App() {
                 <span>How to search medicine records</span>
               </div>
               <p className="leading-relaxed">
-                Enter either the brand name (e.g., <span className="font-semibold text-slate-800">P-Alaxin</span>), the generic active drug (e.g., <span className="font-semibold text-slate-800">Paracetamol</span> or <span className="font-semibold text-slate-800">Amoxicillin</span>), or a reference registration identifier (e.g., <span className="font-mono text-slate-800 font-semibold">DEMO-04-7493</span>).
+                Enter either the brand name (e.g., <span className="font-semibold text-slate-800">P-Alaxin</span>), the generic active drug (e.g., <span className="font-semibold text-slate-800">Paracetamol</span> or <span className="font-semibold text-slate-800">Amoxicillin</span>), or a reference registration identifier (e.g., <span className="font-mono text-slate-800 font-semibold">B4-8892</span>). You can also click <span className="font-semibold text-slate-800">Scan medicine</span> to detect text from packaging using your camera or photo upload.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-slate-700">
                 <div className="bg-slate-50 p-3 rounded border border-slate-100">
@@ -221,6 +230,13 @@ export default function App() {
       <SafetyModal
         isOpen={isSafetyModalOpen}
         onClose={() => setIsSafetyModalOpen(false)}
+      />
+
+      {/* OCR Medicine Scanner Modal */}
+      <MedicineScanner
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onConfirmSearch={handleOcrConfirmedSearch}
       />
     </div>
   );
