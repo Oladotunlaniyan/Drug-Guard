@@ -1,0 +1,8 @@
+{
+  "name": "DrugGuard - Medicine & NAFDAC Information",
+  "description": "DrugGuard helps Nigerians search medicines or NAFDAC registration numbers to view trusted product, registration, and safety information.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
