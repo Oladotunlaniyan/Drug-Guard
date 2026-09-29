@@ -1,160 +1,250 @@
-# DrugGuard
+## NAFDAC Greenbook Data Integration
 
-DrugGuard is a mobile-first public health information web application designed for Nigerians to look up medicines or NAFDAC registration numbers and review structured product specifications, reference indications, dosage references, and safety information.
+DrugGuard uses **NAFDAC's Greenbook** as the primary source for its registered medicine dataset. The NAFDAC Greenbook is Nigeria's public product registration database and contains thousands of registered products across multiple categories:
 
----
+1. Drugs
+2. Vaccines and biologics
+3. Veterinary products
+4. Medical devices
+5. Herbals and nutraceuticals
+6. Disinfectants
 
-## Core Purpose & Boundaries
+The Greenbook initially exposes approximately **8,941 total product entries** across these categories. These entries are not all human medicines, so DrugGuard filters the dataset to the relevant registered drug records. The current ingestion process collects approximately **7,443 registered drug records** for the DrugGuard database.
 
-DrugGuard is an **educational information utility**, not a doctor, diagnostic tool, prescribing system, pharmacy, or physical verification authority.
+### How DrugGuard Gets the Data
 
-### Strict Safety & Legal Boundaries
-- **No Authenticity Certification**: Finding a matching registered product record online does **not** certify that a physical carton, blister pack, or batch in hand is genuine or unadulterated.
-- **No Counterfeit Determinant**: If a medicine or registration number is not found in the database, it does **not** automatically mean the product is fake or counterfeit. Legitimate products may have newly issued numbers or may not yet be indexed.
-- **No Prescriptions or Medical Advice**: DrugGuard provides general reference data from published monographs and regulatory sources. It does not provide personalized dosages or recommend medication intake.
-- **No Generative AI Claims**: The frontend never uses AI or LLMs to invent dosages, indications, or warnings. All data is rendered strictly from structured service responses.
+NAFDAC does not provide a public API for its drug registry. Instead, the Greenbook provides a searchable web interface that communicates with NAFDAC's backend whenever a user searches for a product.
 
----
+During development, DrugGuard's data pipeline was built by inspecting the network requests made by the Greenbook using browser developer tools. This revealed the request used by the Greenbook's own search functionality to retrieve product records.
 
-## Core User Flow
+DrugGuard then uses an automated ingestion script that reproduces this request programmatically. Instead of searching for medicines one at a time through the Greenbook interface, the script retrieves the available records page by page, processes them, and stores the relevant drug records in DrugGuard's own database.
 
-```
-Public Landing Page (Equilibrium-inspired Brand System & Visual Monograph)
+```text
+NAFDAC Greenbook
        │
-       ├─────────────────────────────────┐
-       ▼                                 ▼
-"Check a medicine" / Query       "Scan a medicine" (OCR)
-       │                                 │
-       ▼                                 ▼
-Live Search (medicineService)    Camera / Blister Upload → Confirm
-       │                                 │
-       └────────────────┬────────────────┘
-                        ▼
-Matching Results List (Scannable Product Cards)
-                        ▼
-Medicine Details (Active Ingredients, Strength, Manufacturer, Registration Status, Uses, Dosage Reference, Warnings, Source Provenance, Share Card)
-                        ▼
-Safety Notices & Pharmacist Verification Guidance
+       ▼
+Greenbook search request
+       │
+       ▼
+DrugGuard ingestion script
+       │
+       ├── Fetch records page by page
+       ├── Pace requests
+       ├── Filter human drug records
+       ├── Clean and normalize data
+       ├── Remove duplicates
+       └── Preserve NAFDAC identifiers
+       │
+       ▼
+DrugGuard MongoDB
+       │
+       ▼
+DrugGuard API
+       │
+       ▼
+DrugGuard Web Application
 ```
 
----
+The ingestion script is paced to avoid overwhelming NAFDAC's servers with requests. Each retrieved record is cleaned and normalized before being stored in MongoDB.
 
-## Key Features
+This allows DrugGuard to maintain a structured and searchable dataset of registered medicines without manually entering thousands of individual records.
 
-1. **Brand Identity & Landing Page**:
-   - Distinctive visual branding inspired by the modern Equilibrium design system:
-     - Warm sage canvas (`#f6f8f4`), deep forest green (`#1b4332`, `#16352a`), mint accent (`#52b788`, `#9bdfb1`), terracotta alert (`#e1775b`), and sage borders (`#dce8dc`).
-     - Large expressive display typography (`DM Sans` + `Plus Jakarta Sans`).
-     - Minimal glassmorphism navigation with quick actions (*"Check a medicine"*, *"Scan package"*).
-     - Product-focused hero featuring interactive DrugGuard monograph cards and floating status badges.
-     - Editorial problem statement: *"Medicine information shouldn't be difficult to understand."*
-     - 3-Step visual process with oversized numerals (01 Search, 02 Scan, 03 Understand).
-     - Interactive product search section with one-click popular Nigerian queries (**P-Alaxin**, **Paracetamol**, **Amoxicillin**, **B4-8892**).
-     - Major OCR package scanner showcase with simulated camera reticle and privacy reassurance.
-     - Structured monograph section (Uses, Dosage, Safety).
-     - Nigerian public health context (*"Designed For Nigeria"*).
-     - Trust & boundaries banner: *"Reference information, not personalized medical advice."*
-     - Memorable closing brand CTA: *"Have a medicine in front of you? Search it. Scan it. Understand it."*
+### Why DrugGuard Maintains Its Own Database
 
-2. **Search Engine & Live Database**:
-   - Prominent search input with instant clear action and seamless back-navigation.
-   - Quick one-tap examples: **P-Alaxin**, **Paracetamol**, **Amoxicillin**, and live NAFDAC code **B4-8892**.
-   - Connected directly to the deployed backend (`https://druggard-backend.onrender.com`).
+DrugGuard does not query the Greenbook manually every time a user searches for a medicine. The collected NAFDAC records are stored in DrugGuard's own MongoDB database and exposed through the DrugGuard API.
 
-2. **OCR Medicine Package Scanner**:
-   - Client-side text detection with support for device cameras (rear environment camera) and photo file uploads (cartons or blister packs).
-   - Dedicated parser (`ocrParser.ts`) extracting NAFDAC registration numbers and drug names.
-   - Complete state handling: *Scanning*, *Processing*, *Text detected*, *No useful text detected*, and *OCR error*.
-   - Strict privacy & safety: OCR is purely an input method; images are never stored or uploaded, and scanning does not certify physical authenticity.
-
-2. **Search Results**:
-   - Scannable cards displaying Product Name, Active Ingredients, Strength, Dosage Form, Route, Manufacturer, Registration Reference, and Status.
-   - Status badge: `"Registered product found"` with distinct status indicators.
-   - Data provenance tag (e.g. `Demo Data`).
-
-3. **Medicine Detail View**:
-   - Structured product specifications table (Ingredients, Strength, Form, Route, Manufacturer, NAFDAC Number, Registration Date, Status, Data Provenance).
-   - **Share medicine** button generating a clean, mobile-optimized information card.
-   - Native Web Share API, high-resolution PNG download (`html-to-image`), and formatted plain text copy for WhatsApp and messaging apps.
-   - **What is it used for?**: Reference indications supplied by source monographs.
-   - **Dosage information**: Standard literature reference accompanied by mandatory notice: *"This is reference information, not personalized medical advice."*
-   - **Safety information**: Contraindications, special warnings & precautions, adverse effects, and pregnancy/lactation guidelines.
-   - **Source Citation**: Direct attribution to the regulatory or clinical reference source with last-updated date.
-
-4. **No Results Safety State**:
-   - Clear educational guidance: *"We couldn't find a matching product in our current database. This does not automatically mean the medicine is counterfeit."*
-   - Practical next steps: checking spelling, consulting a licensed community pharmacist, and verifying through official NAFDAC channels.
-
-5. **Safety & Boundaries Guide**:
-   - In-app modal detailing statutory boundaries, Mobile Authentication Service (MAS) scratch-and-SMS advice in Nigeria, and physical inspection best practices.
-
----
-
-## Tech Stack & Architecture
-
-- **Framework**: React 19 with TypeScript
-- **Styling**: Tailwind CSS v4 (`@tailwindcss/vite`)
-- **Icons**: Lucide React
-- **Build Tool**: Vite
-- **Typography**: Clean public-utility hierarchy using *Plus Jakarta Sans* and *IBM Plex Mono*
-
-### Service & Data Architecture
-
-```
-src/
-├── types/
-│   └── medicine.ts          # Strongly typed models: Medicine, DosageReference, SafetyInformation, MedicineSourceType ('demo' | 'nafdac' | 'medical_reference')
-├── data/
-│   └── mockMedicines.ts     # Reference dataset with explicit demo identifiers (DEMO-*)
-├── services/
-│   └── medicineService.ts   # Clean abstraction layer for queries; connects to live endpoints when VITE_API_BASE is set
-└── components/
-    ├── Header.tsx           # Institutional header with navigation & safety modal trigger
-    ├── SearchBar.tsx        # Accessible search input with loading states and reset
-    ├── QuickExamples.tsx    # Clickable query presets
-    ├── SearchResults.tsx    # High-density scannable results list
-    ├── MedicineDetail.tsx   # Comprehensive product monograph view
-    ├── NoResults.tsx        # Public safety guidance when records are unmatched
-    ├── ErrorState.tsx       # Resilient network error & retry component
-    ├── SafetyModal.tsx      # Comprehensive educational boundaries modal
-    └── Footer.tsx           # Regulatory notice, disclaimer, and official links
+```text
+NAFDAC Greenbook
+       ↓
+Data ingestion
+       ↓
+DrugGuard MongoDB
+       ↓
+DrugGuard API
+       ↓
+DrugGuard Web App
+       ↓
+User
 ```
 
-### Backend API Integration
+This gives DrugGuard a consistent data structure for:
 
-The UI interacts exclusively through `medicineService`. Configured via `VITE_API_BASE_URL` (defaulting to `https://druggard-backend.onrender.com`):
+* Medicine search
+* NAFDAC registration number lookup
+* OCR-based medicine searches
+* Medicine detail pages
+* Shareable medicine cards
+* Product filtering and retrieval
 
-- `GET /api/v1/health` — Backend health check.
-- `GET /api/v1/medicines?q={query}` — Search medicines by brand, active ingredient, or NAFDAC code.
-- `GET /api/v1/medicines/all` — Retrieve all available medicine records.
-- `GET /api/v1/medicines/nafdac/{nafdacNumber}` — Direct NAFDAC registration lookup.
+The database also allows DrugGuard to combine NAFDAC registration information with additional reference information without changing the underlying regulatory record.
 
----
+### Data Scope
 
-## Development & Setup
+The initial Greenbook dataset contains multiple types of regulated products. DrugGuard specifically processes the records relevant to **human pharmaceutical products**.
 
-### Prerequisites
-- Node.js 18+
-- pnpm or yarn
+The approximately 8,941 Greenbook entries therefore do not represent 8,941 medicines in DrugGuard.
 
-### Installation
+After processing and filtering the Greenbook data, approximately **7,443 registered drug records** are stored in the DrugGuard database.
 
-```bash
-# Clone the repository and install dependencies
-pnpm install
+Products belonging to categories such as veterinary products, medical devices, disinfectants, and other non-drug categories are excluded from the core medicine dataset.
 
-# Start the local development server (runs on port 3000)
-pnpm run dev
+### Data Stored by DrugGuard
 
-# Run TypeScript linting
-pnpm run lint
+Each imported medicine record contains structured information obtained from the NAFDAC dataset, including fields such as:
 
-# Build production bundle
-pnpm run build
+* Product name
+* Active ingredient(s)
+* Strength
+* Dosage form
+* Route of administration
+* Manufacturer
+* NAFDAC registration number
+* Registration date
+* Registration status
+* Product category
+* Source information
+* Data retrieval information
+
+The NAFDAC registration information is kept separate from additional clinical reference information used by DrugGuard.
+
+Information such as:
+
+* Indications
+* Dosage references
+* Contraindications
+* Warnings
+* Precautions
+* Adverse effects
+* Pregnancy and lactation information
+
+is handled as reference information and is not presented as part of the NAFDAC registration itself.
+
+### Data Provenance
+
+DrugGuard preserves the origin of its regulatory product records.
+
+NAFDAC-sourced records are identified as:
+
+```ts
+type MedicineSourceType =
+  | "demo"
+  | "nafdac_greenbook"
+  | "medical_reference";
 ```
 
----
+A NAFDAC record can contain provenance information such as:
 
-## Reference & Attribution
+```ts
+{
+  source: "nafdac_greenbook",
+  nafdacNumber: "...",
+  sourceRetrievedAt: "...",
+  productCategory: "drug"
+}
+```
 
-Official regulatory oversight of medicines and foods in Nigeria is managed exclusively by the [National Agency for Food and Drug Administration and Control (NAFDAC)](https://www.nafdac.gov.ng) and the [Pharmacy Council of Nigeria (PCN)](https://pcn.gov.ng).
+This allows DrugGuard to distinguish between information retrieved from NAFDAC and information obtained from separate medical or clinical reference sources.
+
+### Registration Does Not Mean Physical Authentication
+
+A matching NAFDAC record means that DrugGuard found a corresponding registration record in the dataset. It does **not** mean that DrugGuard has physically inspected or authenticated the medicine in a user's possession.
+
+```text
+NAFDAC registration record exists
+        ≠
+Physical medicine is authentic
+```
+
+Likewise:
+
+```text
+No DrugGuard result
+        ≠
+Medicine is counterfeit
+```
+
+A medicine may not appear in DrugGuard because of changes to the source registry, data synchronization timing, search differences, incomplete ingestion, or other technical limitations.
+
+DrugGuard therefore presents registration records as **reference information**, not as physical authenticity certification.
+
+### Data Retrieval and Synchronization
+
+DrugGuard's ingestion process retrieves records from the public data flow used by the Greenbook and stores a synchronized copy in MongoDB.
+
+The ingestion process:
+
+* Retrieves records page by page
+* Uses controlled request pacing
+* Filters the relevant drug category
+* Cleans and normalizes records
+* Removes duplicate records
+* Preserves NAFDAC registration identifiers
+* Records source information
+* Stores the processed records in MongoDB
+
+Because DrugGuard maintains its own copy of the dataset, the information displayed by DrugGuard represents the state of the data when it was collected and processed.
+
+NAFDAC's Greenbook remains the authoritative regulatory source.
+
+### Expanded Data Architecture
+
+The complete data flow is:
+
+```text
+                 ┌──────────────────────┐
+                 │    NAFDAC Greenbook  │
+                 │                      │
+                 │  8,941+ total        │
+                 │  product entries     │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ Greenbook Request    │
+                 │ Identified through   │
+                 │ browser network      │
+                 │ inspection           │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │ DrugGuard Ingestion  │
+                 │ Script               │
+                 │                      │
+                 │ Fetch                │
+                 │ Filter               │
+                 │ Normalize            │
+                 │ Deduplicate          │
+                 │ Validate             │
+                 └──────────┬───────────┘
+                            │
+                            │ ~7,443
+                            │ drug records
+                            ▼
+                 ┌──────────────────────┐
+                 │      MongoDB         │
+                 │ DrugGuard Database   │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+                 ┌──────────────────────┐
+                 │     DrugGuard API    │
+                 │                      │
+                 │ Search               │
+                 │ NAFDAC lookup        │
+                 │ Product retrieval    │
+                 └──────────┬───────────┘
+                            │
+                            ▼
+              ┌─────────────────────────────┐
+              │       DrugGuard Web App     │
+              │                             │
+              │ Search → Results → Details  │
+              │                             │
+              │ OCR → Extract → Search      │
+              │                             │
+              │ Shareable Medicine Card     │
+              └─────────────────────────────┘
+```
+
+This architecture makes DrugGuard a **search and information layer over NAFDAC registration data**, combining regulatory product records with clearly identified reference information while maintaining a strict distinction between registration status and physical medicine authenticity.
