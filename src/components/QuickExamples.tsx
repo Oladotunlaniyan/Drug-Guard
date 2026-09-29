@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'motion/react';
+import { tapScale } from '../utils/motion';
 
 interface QuickExamplesProps {
   onSelectExample: (example: string) => void;
@@ -13,45 +15,27 @@ export const QuickExamples: React.FC<QuickExamplesProps> = ({
     { label: 'P-Alaxin', query: 'P-Alaxin' },
     { label: 'Paracetamol', query: 'Paracetamol' },
     { label: 'Amoxicillin', query: 'Amoxicillin' },
-  ];
-
-  const secondaryExamples = [
-    { label: 'NAFDAC: B4-8892', query: 'B4-8892' },
-    { label: 'Unmatched: Artemisin-X', query: 'Artemisin-X' },
+    { label: 'B4-8892', query: 'B4-8892' },
   ];
 
   return (
-    <div className="pt-2">
-      <div className="text-xs font-medium text-slate-500 mb-2">
-        Try searching for:
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {primaryExamples.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            disabled={disabled}
-            onClick={() => onSelectExample(item.query)}
-            className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 disabled:opacity-50 transition-colors cursor-pointer"
-          >
-            {item.label}
-          </button>
-        ))}
-
-        <span className="text-slate-300 text-xs hidden sm:inline" aria-hidden="true">|</span>
-
-        {secondaryExamples.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            disabled={disabled}
-            onClick={() => onSelectExample(item.query)}
-            className="min-h-[44px] px-3 py-2 text-xs text-slate-500 bg-slate-50/70 border border-slate-200/80 rounded-md hover:bg-white hover:text-slate-700 disabled:opacity-50 transition-colors cursor-pointer"
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+      <span className="text-xs font-bold text-[#355845] mr-1">
+        Try:
+      </span>
+      {primaryExamples.map((item) => (
+        <motion.button
+          key={item.label}
+          type="button"
+          whileHover={{ y: -1 }}
+          whileTap={tapScale}
+          disabled={disabled}
+          onClick={() => onSelectExample(item.query)}
+          className="min-h-[36px] px-3.5 py-1 text-xs font-bold text-[#1b4332] bg-[#eef6ed] border border-[#cbd9cc] rounded-full hover:bg-[#dceadd] disabled:opacity-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1b4332]"
+        >
+          {item.label}
+        </motion.button>
+      ))}
     </div>
   );
 };

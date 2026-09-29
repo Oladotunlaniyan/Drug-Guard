@@ -8,12 +8,12 @@ import {
   CheckCircle2,
   RefreshCw,
   Search,
-  FileText,
-  Info,
-  ChevronRight
+  Info
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { createWorker } from 'tesseract.js';
 import { parseOcrText, ParsedOcrResult } from '../utils/ocrParser';
+import { modalBackdropVariants, modalPanelVariants, tapScale } from '../utils/motion';
 
 interface MedicineScannerProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ export const MedicineScanner: React.FC<MedicineScannerProps> = ({
 }) => {
   const [status, setStatus] = useState<ScanStatus>('idle');
   const [progress, setProgress] = useState<number>(0);
-  const [progressMessage, setProgressMessage] = useState<string>('Initializing OCR engine...');
+  const [progressMessage, setProgressMessage] = useState<string>('Initializing OCR...');
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [parsedResult, setParsedResult] = useState<ParsedOcrResult | null>(null);
   const [editedQuery, setEditedQuery] = useState<string>('');
@@ -99,24 +99,25 @@ export const MedicineScanner: React.FC<MedicineScannerProps> = ({
     }
   };
 
-  // Perform Tesseract client-side OCR
+  // Run Tesseract.js client-side OCR
   const runOcrOnImage = async (imageSource: string | HTMLCanvasElement) => {
     setStatus('processing');
-    setProgress(10);
-    setProgressMessage('Reading text from medicine packaging...');
-    setErrorMessage(null);
+    setProgress(0);
+    setProgressMessage('Reading text from package...');
 
     let worker: any = null;
     try {
-      worker = await createWorker('eng');
-
-      setProgress(40);
-      setProgressMessage('Recognizing medicine characters...');
+      worker = await createWorker('eng', 1, {
+        logger: (m: any) => {
+          if (m.status === 'recognizing text') {
+            setProgress(Math.round(m.progress * 100));
+            setProgressMessage(`Extracting printed text (${Math.round(m.progress * 100)}%)...`);
+          }
+        },
+      });
 
       const ret = await worker.recognize(imageSource);
       const text = ret.data.text || '';
-
-      setProgress(100);
 
       await worker.terminate();
       worker = null;
@@ -147,7 +148,7 @@ export const MedicineScanner: React.FC<MedicineScannerProps> = ({
     }
   };
 
-  // Capture current frame from video stream
+  // Capture photo from video
   const handleCapturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
@@ -166,14 +167,12 @@ export const MedicineScanner: React.FC<MedicineScannerProps> = ({
     runOcrOnImage(canvas);
   };
 
-  // Handle uploaded file (blister pack, carton photo)
+  // Handle uploaded file
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset input so same file can be reselected if needed
     e.target.value = '';
-
     stopCamera();
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -184,354 +183,341 @@ export const MedicineScanner: React.FC<MedicineScannerProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleConfirm = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = editedQuery.trim();
-    if (!trimmed) return;
-    onClose();
-    onConfirmSearch(trimmed);
-  };
-
   const handleReset = () => {
     stopCamera();
+    setStatus('idle');
     setImagePreviewUrl(null);
     setParsedResult(null);
     setEditedQuery('');
     setErrorMessage(null);
-    setStatus('idle');
+    setProgress(0);
   };
 
-  if (!isOpen) return null;
+  const handleConfirm = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const finalQuery = editedQuery.trim();
+    if (!finalQuery) return;
+    onConfirmSearch(finalQuery);
+    onClose();
+  };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="scanner-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs"
-    >
-      <div className="relative w-full max-w-lg bg-white rounded-lg border border-slate-200 shadow-xl overflow-hidden max-h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50/70">
-          <div className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-emerald-800" />
-            <div>
-              <h2 id="scanner-modal-title" className="text-base font-bold text-slate-900">
-                Scan Medicine Package
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                Camera or photo text recognition (OCR)
-              </p>
-            </div>
-          </div>
-          <button
+    <AnimatePresence>
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="scanner-modal-title"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs"
+        >
+          {/* Backdrop */}
+          <motion.div
+            variants={modalBackdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 cursor-pointer"
-            aria-label="Close scanner"
+            className="absolute inset-0"
+          />
+
+          {/* Panel: Responsive Full-width on mobile with bottom sheet feel, centered modal on tablet/desktop */}
+          <motion.div
+            variants={modalPanelVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="relative w-full max-w-full sm:max-w-xl bg-white rounded-t-[28px] sm:rounded-[28px] border-t sm:border border-[#dce8dc] shadow-xl overflow-hidden max-h-[92vh] sm:max-h-[88vh] flex flex-col z-10"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Hidden inputs & canvas */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        <canvas ref={canvasRef} className="hidden" />
-
-        {/* Modal Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-slate-700">
-          {/* Statutory boundary banner */}
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 flex items-start gap-2">
-            <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-            <p>
-              <strong>Input method notice:</strong> OCR assists by extracting text from packaging. Scanning does not verify physical authenticity or certify genuine batches. Images are processed locally on your device and are never stored.
-            </p>
-          </div>
-
-          {/* State 1: IDLE (Choose Camera or Upload) */}
-          {status === 'idle' && (
-            <div className="space-y-4 py-2">
-              <div className="text-center space-y-1">
-                <p className="text-sm font-semibold text-slate-900">
-                  Select how to capture your medicine package
-                </p>
-                <p className="text-xs text-slate-500">
-                  Ensure the medicine brand name or NAFDAC registration number is well lit and clearly visible.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={startCamera}
-                  className="min-h-[52px] p-4 bg-emerald-800 text-white font-medium text-xs rounded-lg hover:bg-emerald-900 active:bg-emerald-950 transition-colors flex flex-col items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <Camera className="w-5 h-5" />
-                  <span>Use Device Camera</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="min-h-[52px] p-4 bg-white border border-slate-300 text-slate-800 font-medium text-xs rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors flex flex-col items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <Upload className="w-5 h-5 text-slate-600" />
-                  <span>Upload Package Photo</span>
-                </button>
-              </div>
-
-              {/* Tips for best results */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded p-3 text-xs text-slate-600 space-y-1.5">
-                <div className="font-semibold text-slate-800">Tips for clear scanning:</div>
-                <ul className="list-disc list-inside space-y-1 text-slate-500 text-[11px]">
-                  <li>Point directly at the product name (e.g. <em>P-Alaxin</em>) or the NAFDAC number (e.g. <em>04-7493</em>).</li>
-                  <li>Avoid heavy glare from foil blisters or shiny carton laminates.</li>
-                  <li>You will be able to confirm or edit detected text before searching.</li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {/* State 2: CAMERA STREAM */}
-          {status === 'scanning_camera' && (
-            <div className="space-y-3">
-              <div className="relative rounded-lg overflow-hidden bg-black aspect-4/3 flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-
-                {/* Target overlay reticle */}
-                <div className="absolute inset-6 border-2 border-dashed border-white/70 rounded-md pointer-events-none flex items-center justify-center">
-                  <span className="text-[11px] font-medium text-white/90 bg-black/60 px-2 py-1 rounded">
-                    Position medicine name or NAFDAC number here
-                  </span>
-                </div>
-              </div>
-
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[#edf1eb] bg-[#fcfdfc] shrink-0">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCapturePhoto}
-                  className="flex-1 min-h-[46px] bg-emerald-800 text-white font-medium text-xs rounded-lg hover:bg-emerald-900 active:bg-emerald-950 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>Capture Photo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="min-h-[46px] px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded-lg cursor-pointer"
-                >
-                  Cancel
-                </button>
+                <Camera className="w-4 h-4 text-[#1b4332]" />
+                <h2 id="scanner-modal-title" className="text-sm sm:text-base font-bold text-[#16352a]">
+                  Medicine Package Scanner
+                </h2>
               </div>
+              <motion.button
+                whileTap={tapScale}
+                onClick={onClose}
+                className="text-[#355845] hover:text-[#16352a] min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-[#eef6ed] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1b4332]"
+                aria-label="Close scanner"
+              >
+                <X className="w-5 h-5" />
+              </motion.button>
             </div>
-          )}
 
-          {/* State 3: PROCESSING OCR */}
-          {status === 'processing' && (
-            <div className="py-8 text-center space-y-3">
-              <div className="w-10 h-10 mx-auto border-3 border-emerald-800 border-t-transparent rounded-full animate-spin" />
-              <div className="text-sm font-bold text-slate-900">
-                Processing package image...
+            {/* Hidden canvas */}
+            <canvas ref={canvasRef} className="hidden" />
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+              {/* Notice Banner */}
+              <div className="p-3 bg-[#eef6ed] border border-[#cbd9cc] rounded-2xl text-xs text-[#204030] flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-[#2d6a4f] shrink-0 mt-0.5" />
+                <p>
+                  <strong>Private & Client-Side:</strong> OCR reads printed text right on your device. Images are never uploaded. This tool assists text entry and does not certify physical medicine authenticity.
+                </p>
               </div>
-              <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                {progressMessage}
-              </p>
-              {imagePreviewUrl && (
-                <div className="pt-2 flex justify-center">
-                  <img
-                    src={imagePreviewUrl}
-                    alt="Scanned medicine preview"
-                    className="w-32 h-20 object-cover rounded border border-slate-200 opacity-75"
+
+              {/* State 1: IDLE */}
+              {status === 'idle' && (
+                <div className="space-y-4 py-2">
+                  <div className="text-center space-y-1">
+                    <h3 className="text-base font-bold text-[#16352a]">
+                      How would you like to scan?
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#2d4f3b]">
+                      Hold the blister pack, label, or box steady in good light.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <motion.button
+                      whileHover={{ y: -1 }}
+                      whileTap={tapScale}
+                      type="button"
+                      onClick={startCamera}
+                      className="min-h-[110px] p-5 rounded-2xl border-2 border-[#cbd9cc] hover:border-[#1b4332] hover:bg-[#f6f8f4] text-center space-y-2 cursor-pointer transition-colors shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1b4332]"
+                    >
+                      <div className="w-10 h-10 mx-auto rounded-full bg-[#eef6ed] text-[#2d6a4f] flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <Camera className="w-5 h-5 text-[#2d6a4f]" />
+                      </div>
+                      <div className="font-bold text-sm text-[#16352a]">Use Camera</div>
+                      <div className="text-xs text-[#2d4f3b]">Scan live with phone or webcam</div>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ y: -1 }}
+                      whileTap={tapScale}
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="min-h-[110px] p-5 rounded-2xl border-2 border-[#cbd9cc] hover:border-[#1b4332] hover:bg-[#f6f8f4] text-center space-y-2 cursor-pointer transition-colors shadow-2xs group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1b4332]"
+                    >
+                      <div className="w-10 h-10 mx-auto rounded-full bg-[#eef6ed] text-[#2d6a4f] flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <Upload className="w-5 h-5 text-[#2d6a4f]" />
+                      </div>
+                      <div className="font-bold text-sm text-[#16352a]">Upload Photo</div>
+                      <div className="text-xs text-[#2d4f3b]">Select packaging from gallery</div>
+                    </motion.button>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
                   />
                 </div>
               )}
-            </div>
-          )}
 
-          {/* State 4: TEXT DETECTED (CONFIRMATION / EDITING) */}
-          {status === 'text_detected' && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-emerald-800 font-semibold text-xs bg-emerald-50 p-2.5 rounded border border-emerald-200">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                <span>Text detected on packaging. Confirm or edit before searching.</span>
-              </div>
+              {/* State 2: CAMERA STREAM (Requirement 5)
+                  - Mobile: Camera takes full width with large, thumb-friendly capture button pinned near bottom.
+                  - Tablet/Laptop: Centered container with sensible max-width keeping aspect-ratio, video never stretching/distorting.
+              */}
+              {status === 'scanning_camera' && (
+                <div className="space-y-4">
+                  <div className="w-full max-w-full sm:max-w-[480px] mx-auto relative rounded-2xl overflow-hidden bg-black aspect-[4/3] flex items-center justify-center shadow-xs">
+                    <video
+                      ref={videoRef}
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover max-w-full"
+                    />
 
-              {/* Detected candidates badges */}
-              <div className="space-y-2 text-xs">
-                {parsedResult?.detectedNafdac && (
-                  <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded border border-slate-200">
-                    <div>
-                      <span className="text-slate-500 text-[11px]">Detected Registration No: </span>
-                      <strong className="font-mono text-slate-900">{parsedResult.detectedNafdac}</strong>
+                    {/* Animated Reticle Overlay */}
+                    <div className="absolute inset-4 sm:inset-6 border-2 border-dashed border-[#52b788]/80 rounded-xl pointer-events-none">
+                      <motion.div
+                        animate={{ top: ['5%', '90%', '5%'] }}
+                        transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute left-2 right-2 h-0.5 bg-[#52b788] shadow-[0_0_10px_#52b788]"
+                      />
                     </div>
+                  </div>
+
+                  {/* Large thumb-friendly capture button and cancel */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1 max-w-[480px] mx-auto">
+                    <motion.button
+                      whileTap={tapScale}
+                      type="button"
+                      onClick={handleCapturePhoto}
+                      className="order-1 sm:order-2 w-full sm:w-auto min-h-[50px] px-8 py-3 bg-[#1b4332] text-white font-bold text-sm sm:text-base rounded-full hover:bg-[#24563f] flex items-center justify-center gap-2 cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1b4332]"
+                    >
+                      <Camera className="w-5 h-5 text-[#9bdfb1]" />
+                      <span>Capture & Read Text</span>
+                    </motion.button>
+
                     <button
                       type="button"
-                      onClick={() => setEditedQuery(parsedResult.detectedNafdac || '')}
-                      className="text-emerald-800 hover:text-emerald-950 font-medium underline text-[11px] cursor-pointer"
+                      onClick={handleReset}
+                      className="order-2 sm:order-1 min-h-[44px] px-4 text-xs sm:text-sm font-bold text-[#355845] hover:text-[#16352a] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1b4332] rounded-full text-center"
                     >
-                      Use this
+                      Cancel camera
                     </button>
                   </div>
-                )}
-
-                {parsedResult?.detectedName && (
-                  <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded border border-slate-200">
-                    <div>
-                      <span className="text-slate-500 text-[11px]">Detected Product / Ingredient: </span>
-                      <strong className="text-slate-900">{parsedResult.detectedName}</strong>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditedQuery(parsedResult.detectedName || '')}
-                      className="text-emerald-800 hover:text-emerald-950 font-medium underline text-[11px] cursor-pointer"
-                    >
-                      Use this
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Editable search query input */}
-              <form onSubmit={handleConfirm} className="space-y-2">
-                <label
-                  htmlFor="ocr-confirm-input"
-                  className="block text-xs font-bold uppercase tracking-wider text-slate-700"
-                >
-                  Search Term to Check:
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="ocr-confirm-input"
-                    type="text"
-                    value={editedQuery}
-                    onChange={(e) => setEditedQuery(e.target.value)}
-                    placeholder="Confirm medicine name or NAFDAC number"
-                    className="flex-1 px-3 py-2.5 text-sm bg-white border border-slate-300 rounded-md text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:border-emerald-700"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!editedQuery.trim()}
-                    className="min-h-[44px] px-5 bg-emerald-800 text-white font-medium text-xs rounded-md hover:bg-emerald-900 disabled:bg-slate-200 disabled:text-slate-400 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                  >
-                    <Search className="w-3.5 h-3.5" />
-                    <span>Search</span>
-                  </button>
                 </div>
-              </form>
+              )}
 
-              {/* Optional raw text toggle for transparency */}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowRawText(!showRawText)}
-                  className="text-[11px] text-slate-500 hover:text-slate-800 underline flex items-center gap-1 cursor-pointer"
-                >
-                  <FileText className="w-3 h-3" />
-                  <span>{showRawText ? 'Hide detected raw text' : 'View detected raw text'}</span>
-                </button>
-                {showRawText && parsedResult?.rawText && (
-                  <pre className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded text-[11px] font-mono text-slate-600 whitespace-pre-wrap max-h-28 overflow-y-auto">
-                    {parsedResult.rawText}
-                  </pre>
-                )}
-              </div>
+              {/* State 3: PROCESSING */}
+              {status === 'processing' && (
+                <div className="space-y-4 py-8 text-center">
+                  <Loader2 className="w-9 h-9 mx-auto animate-spin text-[#1b4332]" />
+                  <div className="space-y-1">
+                    <div className="text-sm sm:text-base font-bold text-[#16352a]">
+                      {progressMessage}
+                    </div>
+                    <div className="text-xs sm:text-sm text-[#2d4f3b]">
+                      Processing packaging image locally on device...
+                    </div>
+                  </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Rescan package</span>
-                </button>
-              </div>
+                  {progress > 0 && (
+                    <div className="w-48 sm:w-64 mx-auto bg-[#edf1eb] rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-[#2d6a4f] h-full transition-all duration-200"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* State 4: TEXT DETECTED */}
+              {status === 'text_detected' && (
+                <div className="space-y-4 py-1">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-[#1b4332] bg-[#eef6ed] p-3 rounded-2xl border border-[#cbd9cc]">
+                    <CheckCircle2 className="w-4 h-4 text-[#2d6a4f] shrink-0" />
+                    <span>Packaging text extracted successfully</span>
+                  </div>
+
+                  {/* Suggestion pills if detected */}
+                  <div className="space-y-2 text-xs sm:text-sm">
+                    {parsedResult?.detectedNafdac && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-[#fcfdfc] rounded-xl border border-[#edf1eb]">
+                        <span className="text-[#2d4f3b] font-medium break-all">
+                          NAFDAC: <strong className="text-[#16352a] font-mono">{parsedResult.detectedNafdac}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditedQuery(parsedResult.detectedNafdac || '')}
+                          className="min-h-[44px] sm:min-h-0 text-[#1b4332] hover:underline font-bold text-xs cursor-pointer self-start sm:self-auto flex items-center"
+                        >
+                          Use this code
+                        </button>
+                      </div>
+                    )}
+
+                    {parsedResult?.detectedName && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-[#fcfdfc] rounded-xl border border-[#edf1eb]">
+                        <span className="text-[#2d4f3b] font-medium break-all">
+                          Medicine: <strong className="text-[#16352a]">{parsedResult.detectedName}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditedQuery(parsedResult.detectedName || '')}
+                          className="min-h-[44px] sm:min-h-0 text-[#1b4332] hover:underline font-bold text-xs cursor-pointer self-start sm:self-auto flex items-center"
+                        >
+                          Use this name
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search query input */}
+                  <form onSubmit={handleConfirm} className="space-y-2">
+                    <label
+                      htmlFor="ocr-confirm-input"
+                      className="block text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#355845]"
+                    >
+                      Confirm query to check:
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        id="ocr-confirm-input"
+                        type="text"
+                        value={editedQuery}
+                        onChange={(e) => setEditedQuery(e.target.value)}
+                        placeholder="Confirm medicine name or NAFDAC code"
+                        className="flex-1 px-4 py-2.5 text-sm bg-white border border-[#cbd9cc] rounded-full text-[#16352a] focus:outline-none focus:ring-2 focus:ring-[#1b4332] min-h-[46px]"
+                      />
+                      <motion.button
+                        whileTap={tapScale}
+                        type="submit"
+                        disabled={!editedQuery.trim()}
+                        className="min-h-[46px] px-6 bg-[#1b4332] text-white font-bold text-xs sm:text-sm rounded-full hover:bg-[#24563f] disabled:bg-[#d5e2d6] disabled:text-[#4a6b54] transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                      >
+                        <Search className="w-4 h-4" />
+                        <span>Search</span>
+                      </motion.button>
+                    </div>
+                  </form>
+
+                  {/* Rescan or Cancel */}
+                  <div className="pt-2 border-t border-[#edf1eb] flex items-center justify-between text-xs">
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="min-h-[44px] text-[#2d4f3b] hover:text-[#16352a] flex items-center gap-1.5 cursor-pointer font-bold"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Rescan package</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowRawText(!showRawText)}
+                      className="min-h-[44px] text-[#355845] hover:text-[#16352a] underline text-xs cursor-pointer flex items-center"
+                    >
+                      {showRawText ? 'Hide raw OCR' : 'View raw OCR'}
+                    </button>
+                  </div>
+
+                  {showRawText && parsedResult?.rawText && (
+                    <pre className="p-3 bg-[#f6f8f4] border border-[#cbd9cc] rounded-xl text-xs font-mono text-[#204030] whitespace-pre-wrap max-h-28 overflow-y-auto break-all">
+                      {parsedResult.rawText}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              {/* State 5: NO TEXT DETECTED / ERROR */}
+              {(status === 'no_text_detected' || status === 'ocr_error') && (
+                <div className="space-y-4 py-6 text-center">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-[#16352a]">
+                      {status === 'no_text_detected' ? 'No clear medicine text detected' : 'Scan error'}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#2d4f3b] max-w-sm mx-auto">
+                      {errorMessage || 'Try capturing with steady lighting or search for the medicine name directly.'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                    <motion.button
+                      whileTap={tapScale}
+                      type="button"
+                      onClick={handleReset}
+                      className="w-full sm:w-auto min-h-[44px] px-6 py-2.5 bg-[#1b4332] text-white font-bold text-xs sm:text-sm rounded-full hover:bg-[#24563f] flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Try again</span>
+                    </motion.button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="w-full sm:w-auto min-h-[44px] px-6 py-2.5 text-xs sm:text-sm font-bold text-[#355845] hover:text-[#16352a] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* State 5: NO TEXT DETECTED */}
-          {status === 'no_text_detected' && (
-            <div className="space-y-4 py-3 text-center">
-              <div className="w-10 h-10 mx-auto rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-slate-900">
-                  No clear medicine text detected
-                </h3>
-                <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                  We could not reliably extract a product name or NAFDAC number from this image. This can occur with camera glare, motion blur, or low lighting.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="w-full sm:w-auto min-h-[42px] px-4 bg-emerald-800 text-white font-medium text-xs rounded-md hover:bg-emerald-900 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Try another photo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full sm:w-auto min-h-[42px] px-4 bg-slate-100 text-slate-700 text-xs font-medium rounded-md hover:bg-slate-200 cursor-pointer"
-                >
-                  Type manually instead
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* State 6: OCR ERROR */}
-          {status === 'ocr_error' && (
-            <div className="space-y-4 py-3 text-center">
-              <div className="w-10 h-10 mx-auto rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Scan process error
-                </h3>
-                <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                  {errorMessage || 'An error occurred during package image processing. Please try again or search manually.'}
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="w-full sm:w-auto min-h-[42px] px-4 bg-emerald-800 text-white font-medium text-xs rounded-md hover:bg-emerald-900 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Retry scan</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full sm:w-auto min-h-[42px] px-4 bg-slate-100 text-slate-700 text-xs font-medium rounded-md hover:bg-slate-200 cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };

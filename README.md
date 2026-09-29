@@ -19,21 +19,21 @@ DrugGuard is an **educational information utility**, not a doctor, diagnostic to
 ## Core User Flow
 
 ```
-Search Medicine OR Scan Medicine Package (Camera / Upload via Tesseract.js OCR)
+Public Landing Page (Equilibrium-inspired Brand System & Visual Monograph)
        │
-       ▼
-Confirm / Edit Detected Medicine Name or NAFDAC Number
-       │
-       ▼
-Existing DrugGuard Search (medicineService)
-       │
-       ▼
+       ├─────────────────────────────────┐
+       ▼                                 ▼
+"Check a medicine" / Query       "Scan a medicine" (OCR)
+       │                                 │
+       ▼                                 ▼
+Live Search (medicineService)    Camera / Blister Upload → Confirm
+       │                                 │
+       └────────────────┬────────────────┘
+                        ▼
 Matching Results List (Scannable Product Cards)
-       │
-       ▼
-Medicine Details (Active Ingredients, Strength, Manufacturer, Registration Status, Uses, Dosage Reference, Warnings, Source Provenance)
-       │
-       ▼
+                        ▼
+Medicine Details (Active Ingredients, Strength, Manufacturer, Registration Status, Uses, Dosage Reference, Warnings, Source Provenance, Share Card)
+                        ▼
 Safety Notices & Pharmacist Verification Guidance
 ```
 
@@ -41,12 +41,25 @@ Safety Notices & Pharmacist Verification Guidance
 
 ## Key Features
 
-1. **Home Screen & Search**:
-   - Prominent search input with instant clear action.
-   - Secondary **“Scan medicine”** action with camera and photo upload support using client-side **Tesseract.js** OCR.
-   - Detected text confirmation and editing screen prior to running the search.
-   - Quick one-tap examples: **P-Alaxin**, **Paracetamol**, **Amoxicillin**, and a demo registration number.
-   - Prominent educational disclaimers.
+1. **Brand Identity & Landing Page**:
+   - Distinctive visual branding inspired by the modern Equilibrium design system:
+     - Warm sage canvas (`#f6f8f4`), deep forest green (`#1b4332`, `#16352a`), mint accent (`#52b788`, `#9bdfb1`), terracotta alert (`#e1775b`), and sage borders (`#dce8dc`).
+     - Large expressive display typography (`DM Sans` + `Plus Jakarta Sans`).
+     - Minimal glassmorphism navigation with quick actions (*"Check a medicine"*, *"Scan package"*).
+     - Product-focused hero featuring interactive DrugGuard monograph cards and floating status badges.
+     - Editorial problem statement: *"Medicine information shouldn't be difficult to understand."*
+     - 3-Step visual process with oversized numerals (01 Search, 02 Scan, 03 Understand).
+     - Interactive product search section with one-click popular Nigerian queries (**P-Alaxin**, **Paracetamol**, **Amoxicillin**, **B4-8892**).
+     - Major OCR package scanner showcase with simulated camera reticle and privacy reassurance.
+     - Structured monograph section (Uses, Dosage, Safety).
+     - Nigerian public health context (*"Designed For Nigeria"*).
+     - Trust & boundaries banner: *"Reference information, not personalized medical advice."*
+     - Memorable closing brand CTA: *"Have a medicine in front of you? Search it. Scan it. Understand it."*
+
+2. **Search Engine & Live Database**:
+   - Prominent search input with instant clear action and seamless back-navigation.
+   - Quick one-tap examples: **P-Alaxin**, **Paracetamol**, **Amoxicillin**, and live NAFDAC code **B4-8892**.
+   - Connected directly to the deployed backend (`https://druggard-backend.onrender.com`).
 
 2. **OCR Medicine Package Scanner**:
    - Client-side text detection with support for device cameras (rear environment camera) and photo file uploads (cartons or blister packs).
@@ -61,6 +74,8 @@ Safety Notices & Pharmacist Verification Guidance
 
 3. **Medicine Detail View**:
    - Structured product specifications table (Ingredients, Strength, Form, Route, Manufacturer, NAFDAC Number, Registration Date, Status, Data Provenance).
+   - **Share medicine** button generating a clean, mobile-optimized information card.
+   - Native Web Share API, high-resolution PNG download (`html-to-image`), and formatted plain text copy for WhatsApp and messaging apps.
    - **What is it used for?**: Reference indications supplied by source monographs.
    - **Dosage information**: Standard literature reference accompanied by mandatory notice: *"This is reference information, not personalized medical advice."*
    - **Safety information**: Contraindications, special warnings & precautions, adverse effects, and pregnancy/lactation guidelines.
@@ -120,7 +135,7 @@ The UI interacts exclusively through `medicineService`. Configured via `VITE_API
 
 ### Prerequisites
 - Node.js 18+
-- npm or yarn
+- pnpm or yarn
 
 ### Installation
 
